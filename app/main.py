@@ -20,7 +20,6 @@ class DemoData(BaseModel):
 
 
 def init_db():
-
     conn = psycopg2.connect(
         host=POSTGRES_HOST,
         database=os.getenv("POSTGRES_DB"),
@@ -106,12 +105,10 @@ def store_data(data: DemoData):
 
     init_db()
 
-    # Redis Cache
     redis_client = redis.Redis(host=REDIS_HOST, port=6379)
 
     redis_client.set("latest_message", data.message)
 
-    # PostgreSQL Insert
     conn = psycopg2.connect(
         host=POSTGRES_HOST,
         database=os.getenv("POSTGRES_DB"),
@@ -150,7 +147,7 @@ def fetch_data():
 
     init_db()
 
-       redis_client = redis.Redis(host=REDIS_HOST, port=6379)
+    redis_client = redis.Redis(host=REDIS_HOST, port=6379)
 
     redis_value = redis_client.get("latest_message")
 
@@ -160,7 +157,6 @@ def fetch_data():
     else:
         redis_value = "No cache found"
 
-    
     conn = psycopg2.connect(
         host=POSTGRES_HOST,
         database=os.getenv("POSTGRES_DB"),

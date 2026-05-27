@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from pydantic import BaseModel
 from datetime import datetime
 import os
 import redis
@@ -14,7 +15,12 @@ REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 POSTGRES_HOST = os.getenv("POSTGRES_HOST", "db")
 
 
+class DemoData(BaseModel):
+    message: str
+
+
 def init_db():
+
     conn = psycopg2.connect(
         host=POSTGRES_HOST,
         database=os.getenv("POSTGRES_DB"),
@@ -33,6 +39,7 @@ def init_db():
     """)
 
     conn.commit()
+
     cur.close()
     conn.close()
 
@@ -58,6 +65,7 @@ def health_check():
     try:
         r = redis.Redis(host=REDIS_HOST, port=6379)
         r.ping()
+
     except Exception:
         redis_status = "failed"
 
@@ -68,7 +76,9 @@ def health_check():
             user=os.getenv("POSTGRES_USER"),
             password=os.getenv("POSTGRES_PASSWORD")
         )
+
         conn.close()
+
     except Exception:
         db_status = "failed"
 
@@ -89,21 +99,19 @@ def generate():
     }
 
 
-@app.get("/system-demo")
-def system_demo():
+@app.post("/store-data")
+def store_data(data: DemoData):
 
-    logger.info("System demo endpoint called")
+    logger.info("Store data endpoint called")
 
     init_db()
 
-    # Redis Test
+    # Redis Cache
     redis_client = redis.Redis(host=REDIS_HOST, port=6379)
 
-    redis_client.set("demo_key", "Redis cache working")
+    redis_client.set("latest_message", data.message)
 
-    redis_value = redis_client.get("demo_key").decode()
-
-    # PostgreSQL Test
+    # PostgreSQL Insert
     conn = psycopg2.connect(
         host=POSTGRES_HOST,
         database=os.getenv("POSTGRES_DB"),
@@ -117,10 +125,50 @@ def system_demo():
 
     cur.execute(
         "INSERT INTO demo_logs (message, created_at) VALUES (%s, %s)",
-        ("PostgreSQL insert working", current_time)
+        (data.message, current_time)
     )
 
     conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return {
+        "status": "success",
+        "message": "Data stored successfully",
+        "stored_data": data.message,
+        "postgresql": "updated",
+        "redis": "cache updated",
+        "timestamp": str(current_time)
+    }
+
+
+@app.get("/fetch-data")
+def fetch_data():
+
+    logger.info("Fetch data endpoint called")
+
+    init_db()
+
+       redis_client = redis.Redis(host=REDIS_HOST, port=6379)
+
+    redis_value = redis_client.get("latest_message")
+
+    if redis_value:
+        redis_value = redis_value.decode()
+
+    else:
+        redis_value = "No cache found"
+
+    
+    conn = psycopg2.connect(
+        host=POSTGRES_HOST,
+        database=os.getenv("POSTGRES_DB"),
+        user=os.getenv("POSTGRES_USER"),
+        password=os.getenv("POSTGRES_PASSWORD")
+    )
+
+    cur = conn.cursor()
 
     cur.execute(
         "SELECT message, created_at FROM demo_logs ORDER BY id DESC LIMIT 1"
@@ -131,19 +179,34 @@ def system_demo():
     cur.close()
     conn.close()
 
+    if latest_record:
+        db_message = latest_record[0]
+        db_time = str(latest_record[1])
+
+    else:
+        db_message = "No records found"
+        db_time = "N/A"
+
     return {
-        "fastapi": "API working",
+        "project": "AI DevOps Infrastructure Demo",
+
         "postgresql": {
             "status": "connected",
-            "latest_record": latest_record[0],
-            "timestamp": str(latest_record[1])
+            "latest_message": db_message,
+            "timestamp": db_time
         },
+
         "redis": {
             "status": "connected",
-            "cached_value": redis_value
+            "cached_message": redis_value
         },
-        "nginx": "reverse proxy active",
-        "docker": "containerized services running",
-        "server": "AWS EC2 Ubuntu active",
-        "logging": "application logging active"
+
+        "services": {
+            "fastapi": "running",
+            "nginx": "active",
+            "docker": "operational",
+            "aws_ec2": "running",
+            "ci_cd": "GitHub Actions active",
+            "security": "Fail2Ban enabled"
+        }
     }

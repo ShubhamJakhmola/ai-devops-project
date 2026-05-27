@@ -1,8 +1,33 @@
 from fastapi import FastAPI
+from datetime import datetime
 import os
 import redis
 import psycopg2
 import logging
+
+def init_db():
+    conn = psycopg2.connect(
+        host=POSTGRES_HOST,
+        database=os.getenv("POSTGRES_DB"),
+        user=os.getenv("POSTGRES_USER"),
+        password=os.getenv("POSTGRES_PASSWORD")
+    )
+
+    cur = conn.cursor()
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS demo_logs (
+            id SERIAL PRIMARY KEY,
+            message TEXT,
+            created_at TIMESTAMP
+        )
+    """)
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+init_db()
 
 app = FastAPI()
 
@@ -55,4 +80,60 @@ def generate():
 
     return {
         "response": "AI response generated successfully"
+    }
+
+@app.get("/system-demo")
+def system_demo():
+
+    logger.info("System demo endpoint called")
+
+    # Redis Test
+    redis_client = redis.Redis(host=REDIS_HOST, port=6379)
+
+    redis_client.set("demo_key", "Redis cache working")
+
+    redis_value = redis_client.get("demo_key").decode()
+
+    # PostgreSQL Test
+    conn = psycopg2.connect(
+        host=POSTGRES_HOST,
+        database=os.getenv("POSTGRES_DB"),
+        user=os.getenv("POSTGRES_USER"),
+        password=os.getenv("POSTGRES_PASSWORD")
+    )
+
+    cur = conn.cursor()
+
+    current_time = datetime.now()
+
+    cur.execute(
+        "INSERT INTO demo_logs (message, created_at) VALUES (%s, %s)",
+        ("PostgreSQL insert working", current_time)
+    )
+
+    conn.commit()
+
+    cur.execute(
+        "SELECT message, created_at FROM demo_logs ORDER BY id DESC LIMIT 1"
+    )
+
+    latest_record = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    return {
+        "fastapi": "API working",
+        "postgresql": {
+            "status": "connected",
+            "latest_record": latest_record[0],
+            "timestamp": str(latest_record[1])
+        },
+        "redis": {
+            "status": "connected",
+            "cached_value": redis_value
+        },
+        "nginx": "reverse proxy active",
+        "docker": "containerized services running",
+        "server": "AWS EC2 Ubuntu active"
     }

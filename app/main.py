@@ -5,6 +5,15 @@ import redis
 import psycopg2
 import logging
 
+app = FastAPI()
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+REDIS_HOST = os.getenv("REDIS_HOST", "redis")
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "db")
+
+
 def init_db():
     conn = psycopg2.connect(
         host=POSTGRES_HOST,
@@ -27,20 +36,16 @@ def init_db():
     cur.close()
     conn.close()
 
-init_db()
-
-app = FastAPI()
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-POSTGRES_HOST = os.getenv("POSTGRES_HOST", "db")
 
 @app.get("/")
 def root():
+
     logger.info("Root endpoint called")
-    return {"message": "AI Backend Running"}
+
+    return {
+        "message": "AI Backend Running"
+    }
+
 
 @app.get("/health")
 def health_check():
@@ -73,6 +78,7 @@ def health_check():
         "database": db_status
     }
 
+
 @app.post("/generate")
 def generate():
 
@@ -82,10 +88,13 @@ def generate():
         "response": "AI response generated successfully"
     }
 
+
 @app.get("/system-demo")
 def system_demo():
 
     logger.info("System demo endpoint called")
+
+    init_db()
 
     # Redis Test
     redis_client = redis.Redis(host=REDIS_HOST, port=6379)
@@ -135,5 +144,6 @@ def system_demo():
         },
         "nginx": "reverse proxy active",
         "docker": "containerized services running",
-        "server": "AWS EC2 Ubuntu active"
+        "server": "AWS EC2 Ubuntu active",
+        "logging": "application logging active"
     }

@@ -1,4 +1,4 @@
-# AI DevOps Project
+# #################################### AI DevOps Project ########################################################
 
 ## Overview
 This project demonstrates deployment and productionization of a containerized FastAPI backend application using Docker, Docker Compose, NGINX reverse proxy, PostgreSQL, Redis, GitHub Actions CI/CD, and AWS EC2 infrastructure.
